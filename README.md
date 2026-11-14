@@ -12,6 +12,15 @@ Zero dodatkowego sprzętu w aucie: żadnego ESP32, żadnego laptopa.
 Aplikacja jest **nieoficjalna** i niepowiązana z Mitsubishi Motors ani PSA.
 Nazwy aut użyto wyłącznie opisowo.
 
+**[Pobierz najnowsze wydanie](https://github.com/janas-karol/miev-monitor/releases/latest)**
+
+| START | OGNIWA | ODCINEK |
+|---|---|---|
+| ![START](mockup/screen-start.png) | ![OGNIWA](mockup/screen-cells.png) | ![ODCINEK](mockup/screen-trip.png) |
+
+Wymagania: Android 5.0+, adapter ELM327 zgodny z Bluetooth Classic (SPP),
+sparowany w ustawieniach telefonu (PIN zwykle 1234).
+
 ## Co potrafi (wersja 1.12)
 
 - **wskaźnik mocy jak obrotomierz** — rysowany od zera (`PowerGaugeView`):
