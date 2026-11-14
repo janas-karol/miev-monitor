@@ -8,3 +8,7 @@ apk/
 # lokalne ustawienia
 .idea/
 *.iml
+
+# posrednie pliki makiet (renderowane z render.py)
+mockup/*.html
+mockup/*.pdf
