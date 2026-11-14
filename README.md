@@ -14,7 +14,8 @@ Jeśli masz te auta i chcesz pomóc, daj znać w zgłoszeniach.
 
 ## Co potrzebujesz
 
-- telefon z Androidem 5.0 lub nowszym,
+- telefon z Androidem 5.0 lub nowszym (aplikacja jest zbudowana pod najnowsze
+  wymagania Androida, więc Play Protect nie zgłasza jej jako przestarzałej),
 - adapter **ELM327 z Bluetooth** (taki, który wpina się w gniazdo diagnostyczne
   OBD-II pod deską rozdzielczą),
 - włączony Bluetooth w telefonie.

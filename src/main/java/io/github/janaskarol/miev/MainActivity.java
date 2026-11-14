@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.WindowInsets;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
@@ -188,6 +189,7 @@ public class MainActivity extends Activity {
             else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         });
 
+        applySystemBarInsets();
         loadDevices();
         showTab(currentTab);
         showFirstRunNotice();
@@ -700,6 +702,35 @@ public class MainActivity extends Activity {
         } catch (IOException e) {
             Toast.makeText(this, "Błąd eksportu: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * Od Androida 15 aplikacje docelowo rysuja pod paskami systemowymi (edge-to-edge).
+     * Dodajemy wciecia jako padding, zeby tresc nie wchodzila pod zegar ani pod pasek nawigacji.
+     */
+    private void applySystemBarInsets() {
+        View content = findViewById(android.R.id.content);
+        content.setOnApplyWindowInsetsListener((view, insets) -> {
+            int left;
+            int top;
+            int right;
+            int bottom;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Insets bars = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                left = bars.left;
+                top = bars.top;
+                right = bars.right;
+                bottom = bars.bottom;
+            } else {
+                left = insets.getSystemWindowInsetLeft();
+                top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            view.setPadding(left, top, right, bottom);
+            return insets;
+        });
     }
 
     /** Jednorazowa informacja przy pierwszym uruchomieniu. */
