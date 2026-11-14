@@ -146,15 +146,18 @@ public class ReaderService extends Service {
     }
 
     private boolean initializeAdapter() {
-        elm.command("ATZ", 2000);
+        elm.command("ATZ", 2500);
+        // po restarcie klon ELM potrzebuje chwili, zanim przyjmie komendy
+        sleep(700);
         for (String cmd : INIT_SEQ) {
-            if (elm.command(cmd, 800).isEmpty()) return false;
+            if (elm.command(cmd, 1000).isEmpty()) return false;
         }
+        sleep(200);
         return true;
     }
 
     private void innerLoop() {
-        long lastCells = 0;
+        long lastCells = System.currentTimeMillis() - CELL_POLL_MS + 2000;   // pierwszy odczyt po 2 s
         long lastUi = 0;
         monitorMode = false;
 
@@ -194,24 +197,28 @@ public class ReaderService extends Service {
      */
     private void ensureMonitorMode() {
         if (monitorMode) return;
-        elm.command("ATCAF0", 400);
-        elm.command("ATFCSM0", 400);
-        elm.command("ATSH7DF", 400);
+        boolean ok = !elm.command("ATCAF0", 800).isEmpty();
+        elm.command("ATFCSM0", 800);
+        elm.command("ATSH7DF", 800);
+        if (!ok) {
+            throw new IllegalStateException("adapter nie przyjął trybu nasłuchu");
+        }
         monitorMode = true;
     }
 
     private void pollCellsAndTemps() {
-        elm.command("ATCAF1", 400);
-        elm.command("ATFCSM1", 400);
-        elm.command("ATFCSH761", 400);
-        elm.command("ATFCSD300000", 400);
-        elm.command("ATSH761", 400);
+        elm.command("ATCAF1", 900);
+        elm.command("ATFCSM1", 900);
+        elm.command("ATFCSH761", 900);
+        elm.command("ATFCSD300000", 900);
+        elm.command("ATSH761", 900);
+        sleep(150);
 
-        String cells = elm.command("2102", 1500);
+        String cells = elm.command("2102", 2500);
         if (cells.isEmpty()) throw new IllegalStateException("brak odpowiedzi na 2102");
         decoder.decodeCells(cells);
 
-        String temps = elm.command("2103", 1500);
+        String temps = elm.command("2103", 2500);
         if (!temps.isEmpty()) decoder.decodeTemps(temps);
     }
 
