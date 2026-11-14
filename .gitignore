@@ -1,0 +1,10 @@
+# artefakty budowania
+build/
+apk/
+*.apk
+*.idsig
+*.pdf
+
+# lokalne ustawienia
+.idea/
+*.iml

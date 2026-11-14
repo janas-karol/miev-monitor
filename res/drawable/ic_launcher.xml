@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prosta ikona: kontur auta z bateria. Wektor, wiec dziala na kazdym API. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:fillColor="#0F1216"
+        android:pathData="M0,0h48v48h-48z" />
+    <path
+        android:fillColor="#57D7A5"
+        android:pathData="M10,28 L13,19 Q14,16 17,16 L31,16 Q34,16 35,19 L38,28 L38,32 Q38,33 37,33 L35,33 Q34,33 34,32 L34,30 L14,30 L14,32 Q14,33 13,33 L11,33 Q10,33 10,32 Z M14,26 L34,26 L31.5,20 L16.5,20 Z" />
+    <path
+        android:fillColor="#8B98A5"
+        android:pathData="M19,10h10v3h-10z M22,6h4v3h-4z" />
+</vector>

@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>i-MiEV — makieta</title>
+<style>
+@page { size: 400pt 860pt; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 10pt 14pt 0; background: #0B0E12; color: #EAEEF2;
+       font-family: "DejaVu Sans", sans-serif; height: 860pt; position: relative; }
+.bar { display: flex; align-items: center; justify-content: space-between; }
+.spinner { font-size: 10pt; background: #10151A; border: 0.75pt solid #212934;
+           border-radius: 6pt; padding: 4pt 8pt; width: 62%; }
+.btn-primary { background: #57D7A5; color: #0B0E12; font-weight: bold; font-size: 9pt;
+               padding: 5pt 11pt; border-radius: 8pt; }
+.status { color: #8B98A5; font-size: 8pt; margin: 4pt 0 8pt; }
+.card { background: #151A21; border: 0.75pt solid #212934; border-radius: 12pt;
+        padding: 9pt; margin-bottom: 7pt; }
+.title { color: #8B98A5; font-size: 7pt; letter-spacing: 1.2pt; margin-bottom: 7pt; }
+.chips { display: flex; margin-bottom: 7pt; }
+.chip { flex: 1; background: #12171D; border: 0.75pt solid #1C232C; border-radius: 9pt;
+        padding: 8pt; }
+.chip + .chip { margin-left: 5pt; }
+.chip .lbl { color: #8B98A5; font-size: 6.5pt; letter-spacing: 1pt; }
+.chip .val { font-size: 16pt; font-weight: bold; margin-top: 2pt; }
+.cols { display: flex; }
+.col { flex: 1; }
+.col .lbl { color: #A7B2BE; font-size: 6.5pt; letter-spacing: 1pt; }
+.col .val { font-size: 11pt; font-weight: bold; margin-top: 2pt; }
+.foot { color: #6C7A89; font-size: 7pt; margin-top: 6pt; }
+.center { text-align: center; }
+.peak { color: #5F6B78; font-size: 7.5pt; text-align: center; margin: 1pt 0 5pt; }
+svg.gauge { width: 100%; height: auto; }
+.spark-label { color: #5F6B78; font-size: 6pt; letter-spacing: 1pt; text-align: left; }
+.cell-row { display: flex; margin-bottom: 3pt; }
+.cell { flex: 1; text-align: center; margin: 0 1.5pt; }
+.cell-mod { color: #8B98A5; font-size: 6.5pt; }
+.cell-mv { font-size: 9pt; font-weight: bold; }
+.cell-bar { height: 2.5pt; background: #212934; margin-top: 1pt; border-radius: 2pt;
+            overflow: hidden; }
+.cell-bar div { height: 100%; }
+.hist-row { display: flex; justify-content: space-between; align-items: center;
+            padding: 5pt 0; border-bottom: 0.5pt solid #212934; }
+.hist-when { font-size: 8pt; font-weight: bold; }
+.hist-det { color: #8B98A5; font-size: 6.5pt; margin-top: 1pt; }
+.hist-per { color: #57D7A5; font-size: 11pt; font-weight: bold; text-align: right; }
+.hist-unit { color: #5F6B78; font-size: 5.5pt; text-align: right; }
+.row { display: flex; justify-content: space-between; padding: 2pt 0; font-size: 8pt; }
+.row .k { color: #8B98A5; }
+.row .v { font-weight: bold; }
+.buttons { display: flex; margin-top: 6pt; }
+.btn { flex: 1; background: #232B36; color: #EAEEF2; text-align: center; padding: 8pt;
+       border-radius: 9pt; font-size: 8pt; }
+.btn + .btn { margin-left: 5pt; }
+.btn-wide { background: #232B36; color: #8B98A5; text-align: center; padding: 8pt;
+            border-radius: 9pt; font-size: 8pt; margin-top: 6pt; }
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 48pt;
+          background: #0E1218; border-top: 0.75pt solid #212934; display: flex; }
+.tab { flex: 1; text-align: center; padding-top: 14pt; font-size: 8pt;
+       letter-spacing: 1pt; color: #5F6B78; }
+.tab.active { color: #57D7A5; font-weight: bold; background: #151A21; }
+@page { size: 700pt 360pt; margin: 0; }body { height: 360pt; }</style></head><body>
+
+<div class="bar">
+  <div class="spinner">V-LINK [86:DC:85:AB:F7:F1]</div>
+  <div class="btn-primary">Rozłącz</div>
+</div>
+<div class="status">Czytam dane</div>
+
+<div class="card">
+  <div class="title">WSZYSTKIE OGNIWA</div>
+  <div class="cols">
+    <div class="col"><div class="lbl">MIN</div><div class="val">4086 mV</div></div>
+    <div class="col"><div class="lbl">MAX</div><div class="val">4104 mV</div></div>
+    <div class="col"><div class="lbl">ROZRZUT</div><div class="val" style="color:#FFB057">18 mV</div></div>
+  </div>
+  <div class="foot">Ogniw 88 · najsłabsze m10 (4086 mV) · Δ 18 mV<br/>pasek: 3800–4200 mV</div>
+</div>
+
+<div class="card">
+  <div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m1</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m1</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m1</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m1</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m2</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m2</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m2</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m2</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m3</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m3</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m3</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m3</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m4</div>
+          <div class="cell-mv" style="color:#57D7A5">4104</div>
+          <div class="cell-bar"><div style="width:76%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m4</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m4</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m4</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m5</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m5</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m5</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m5</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m6</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m6</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m6</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m6</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m7</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m7</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m7</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m7</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m8</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m8</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m8</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m8</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m9</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m9</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m9</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m9</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m10</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m10</div>
+          <div class="cell-mv" style="color:#FFB057">4086</div>
+          <div class="cell-bar"><div style="width:72%;background:#FFB057"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m10</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m10</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m11</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m11</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m11</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m11</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m12</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m12</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m12</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m12</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m13</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m13</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m13</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m13</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m14</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m14</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m14</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m14</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m15</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m15</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m15</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m15</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m16</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m16</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m16</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m16</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m17</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m17</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m17</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m17</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m18</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m18</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m18</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m18</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m19</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m19</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m19</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m19</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m20</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m20</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m20</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m20</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div><div class="cell-row">
+        <div class="cell">
+          <div class="cell-mod">m21</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m21</div>
+          <div class="cell-mv" style="color:#EAEEF2">4097</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m21</div>
+          <div class="cell-mv" style="color:#EAEEF2">4098</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m21</div>
+          <div class="cell-mv" style="color:#EAEEF2">4099</div>
+          <div class="cell-bar"><div style="width:75%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m22</div>
+          <div class="cell-mv" style="color:#EAEEF2">4093</div>
+          <div class="cell-bar"><div style="width:73%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m22</div>
+          <div class="cell-mv" style="color:#EAEEF2">4094</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m22</div>
+          <div class="cell-mv" style="color:#EAEEF2">4095</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cell-mod">m22</div>
+          <div class="cell-mv" style="color:#EAEEF2">4096</div>
+          <div class="cell-bar"><div style="width:74%;background:#57D7A5"></div></div>
+        </div></div>
+</div>
+
+<div class="tabbar"><div class="tab">START</div><div class="tab active">OGNIWA</div><div class="tab">ODCINEK</div><div class="tab">INNE</div></div>
+</body></html>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  i-MiEV — aplikacja czytajaca adapter ELM327 po Bluetooth Classic (SPP).
+
+  Bluetooth: do API 30 stare uprawnienia, od 31 (Android 12) wymagane
+  BLUETOOTH_CONNECT (laczenie z juz sparowanym urzadzeniem).
+  Lokalizacja nie jest potrzebna, bo nie skanujemy - korzystamy z listy
+  sparowanych urzadzen.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.janaskarol.miev">
+
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+
+    <application
+        android:label="MiEV Monitor"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:allowBackup="true"
+        android:supportsRtl="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Usluga czytajaca dane w tle (dziala tez przy zgaszonym ekranie). -->
+        <service
+            android:name=".ReaderService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+    </application>
+</manifest>
