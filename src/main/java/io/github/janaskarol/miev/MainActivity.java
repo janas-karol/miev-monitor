@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
     private static final String PREFS = "imiev";
     private static final String PREF_MAC = "adapter_mac";
     private static final int REQ_PERMISSIONS = 1;
-    private static final long HISTORY_REFRESH_MS = 5000;
+    private static final long HISTORY_REFRESH_MS = 15000;
     private static final int TAB_START = 0;
     private static final int TAB_CELLS = 1;
     private static final int TAB_TRIP = 2;
@@ -84,7 +84,7 @@ public class MainActivity extends Activity {
     private LinearLayout cellGrid;
     private TextView cellTabMin, cellTabMax, cellTabDelta, cellSummary;
     private int currentTab = TAB_START;
-    private String lastCellSignature = "";
+    private int lastCellsHash = 0;
 
 
     private long lastHistoryAt = 0;
@@ -459,8 +459,7 @@ public class MainActivity extends Activity {
         cellTabDelta.setText(delta + " mV");
         cellTabDelta.setTextColor(deltaColor(delta));
 
-        String signature = cells.length + ":" + CarState.cellMin + ":" + CarState.cellMax
-                + ":" + CarState.cellMinIndex;
+
         cellSummary.setText(String.format(Locale.US,
                 "Ogniw %d · najsłabsze: m%d (%d mV) · najmocniejsze: m%d (%d mV) · Δ %d mV"
                         + "\npasek: 3800–4200 mV",
@@ -468,8 +467,11 @@ public class MainActivity extends Activity {
                 CarState.cellMinIndex / 4 + 1, CarState.cellMin,
                 CarState.cellMaxIndex / 4 + 1, CarState.cellMax, delta));
 
-        if (!signature.equals(lastCellSignature)) {
-            lastCellSignature = signature;
+        // siatke przebudowujemy tylko, gdy przyszly nowe dane z ogniw (co ~30 s),
+        // a nie co sekunde - 88 widokow na watku UI to glowna przyczyna lagow
+        int hash = java.util.Arrays.hashCode(cells);
+        if (hash != lastCellsHash) {
+            lastCellsHash = hash;
             if (currentTab == TAB_CELLS) rebuildCellGrid();
         }
     }

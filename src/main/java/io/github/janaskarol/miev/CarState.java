@@ -97,7 +97,8 @@ final class CarState {
         soc = d.soc;
         volts = d.volts;
         amps = d.amps;
-        powerKw = d.powerKw();
+        // wskazanie: dodatnia = pobor z baterii (prawa strona tarczy), ujemna = rekuperacja
+        powerKw = -d.powerKw();
         speed = d.speed;
         heaterA = d.heaterA;
         heaterKw = d.heaterKw();

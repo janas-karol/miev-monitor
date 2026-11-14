@@ -38,6 +38,8 @@ public class ReaderService extends Service {
     private static final long SAMPLE_MOVING_MS = 2000;
     private static final long SAMPLE_IDLE_MS = 30000;
     private static final long RECONNECT_MS = 5000;
+    /** Ogniwa i temperatury odczytujemy rzadko - kazdy odczyt blokuje nasluch na kilka sekund. */
+    private static final long CELL_POLL_MS = 30000;
 
     private volatile boolean running = false;
     private Thread worker;
@@ -50,6 +52,8 @@ public class ReaderService extends Service {
     private String targetMac;
     private String targetName = "adapter";
     private long lastSampleAt = 0;
+    /** Czy adapter jest w trybie nasluchu (surowe ramki). Po odczycie ogniw - nie. */
+    private boolean monitorMode = false;
     private long lastNotifyAt = 0;
 
     // ------------------------------------------------------------------ cykl zycia
@@ -152,14 +156,17 @@ public class ReaderService extends Service {
     private void innerLoop() {
         long lastCells = 0;
         long lastUi = 0;
+        monitorMode = false;
 
         while (running && elm.isOpen()) {
             long now = System.currentTimeMillis();
 
-            if (now - lastCells > 15000) {
+            if (now - lastCells > CELL_POLL_MS) {
                 pollCellsAndTemps();
                 lastCells = now;
+                monitorMode = false;
             } else {
+                ensureMonitorMode();
                 decoder.decodeBurst(elm.monitor(80));
             }
 
@@ -170,7 +177,7 @@ public class ReaderService extends Service {
             if (now - lastUi > 1000) {
                 lastUi = now;
                 CarState.update(decoder);
-                CarState.pushPower(decoder.powerKw());
+                CarState.pushPower(CarState.powerKw);
                 CarState.updateTrip(tripTracker.snapshot(now), tripTracker.isActive());
                 CarState.setPeak(tripTracker.peakKw());
                 if (now - lastNotifyAt > 5000) {
@@ -181,18 +188,30 @@ public class ReaderService extends Service {
         }
     }
 
-    private void pollCellsAndTemps() {
-        elm.command("ATCAF1", 700);
-        elm.command("ATFCSM1", 700);
-        elm.command("ATFCSH761", 700);
-        elm.command("ATFCSD300000", 700);
-        elm.command("ATSH761", 700);
+    /**
+     * Przelaczenie adaptera w tryb monitora. Bez CAF0 klon ELM gubi ramki 0x373/0x374
+     * (tak samo jak w wersji Python) - dlatego wracamy do tego trybu po kazdym odczycie ogniw.
+     */
+    private void ensureMonitorMode() {
+        if (monitorMode) return;
+        elm.command("ATCAF0", 400);
+        elm.command("ATFCSM0", 400);
+        elm.command("ATSH7DF", 400);
+        monitorMode = true;
+    }
 
-        String cells = elm.command("2102", 2500);
+    private void pollCellsAndTemps() {
+        elm.command("ATCAF1", 400);
+        elm.command("ATFCSM1", 400);
+        elm.command("ATFCSH761", 400);
+        elm.command("ATFCSD300000", 400);
+        elm.command("ATSH761", 400);
+
+        String cells = elm.command("2102", 1500);
         if (cells.isEmpty()) throw new IllegalStateException("brak odpowiedzi na 2102");
         decoder.decodeCells(cells);
 
-        String temps = elm.command("2103", 2500);
+        String temps = elm.command("2103", 1500);
         if (!temps.isEmpty()) decoder.decodeTemps(temps);
     }
 

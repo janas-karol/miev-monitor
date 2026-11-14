@@ -98,7 +98,7 @@ final class TripTracker {
 
         float kw = d.powerKw();
         if (!Float.isNaN(kw)) {
-            peakKw = Math.max(peakKw, kw);
+            peakKw = Math.max(peakKw, -kw);       // szczyt poboru (kw < 0 = pobor)
             if (kw < 0) discharge += -kw * dt / 3600f;
             else regen += kw * dt / 3600f;
         }
