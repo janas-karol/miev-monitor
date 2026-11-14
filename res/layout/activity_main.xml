@@ -85,7 +85,7 @@
                     android:paddingLeft="4dp"
                     android:paddingRight="4dp">
 
-                    <pl.imiev.app.PowerGaugeView
+                    <io.github.janaskarol.miev.PowerGaugeView
                         android:id="@+id/powerGauge"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content" />
@@ -109,7 +109,7 @@
                         android:textColor="@color/dim"
                         android:textSize="10sp" />
 
-                    <pl.imiev.app.SparklineView
+                    <io.github.janaskarol.miev.SparklineView
                         android:id="@+id/powerSpark"
                         android:layout_width="match_parent"
                         android:layout_height="54dp"

@@ -75,7 +75,7 @@ public class ReaderService extends Service {
             if (name != null) targetName = name;
         }
 
-        startForeground(NOTIFICATION_ID, buildNotification("Łączę z adapterem…"));
+        startInForeground(buildNotification("Łączę z adapterem…"));
         CarState.serviceRunning = true;
 
         if (targetMac == null) {
@@ -238,9 +238,31 @@ public class ReaderService extends Service {
 
         Intent stop = new Intent(this, ReaderService.class).setAction(ACTION_STOP);
         PendingIntent stopIntent = PendingIntent.getService(this, 1, stop, flags);
-        b.addAction(new Notification.Action.Builder(null, "Zatrzymaj", stopIntent).build());
+        // stara forma z ikona zasobu - ikona null bywa odrzucana przez nowsze systemy
+        b.addAction(new Notification.Action.Builder(
+                android.R.drawable.ic_menu_close_clear_cancel, "Zatrzymaj", stopIntent).build());
 
         return b.build();
+    }
+
+    /**
+     * Start usługi pierwszoplanowej. Od targetSdk 34 system sprawdza typ usługi
+     * (connectedDevice) i jego uprawnienia - podajemy typ jawnie i łapiemy błąd,
+     * żeby zamiast zamknięcia aplikacji pokazać przyczynę w statusie.
+     */
+    private void startInForeground(Notification notification) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification,
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (RuntimeException e) {
+            CarState.status = "Nie mogę uruchomić odczytu w tle: " + e.getClass().getSimpleName()
+                    + " — " + e.getMessage();
+            CrashLog.write(this, e);
+        }
     }
 
     private void notify(Notification n) {

@@ -1,11 +1,11 @@
-package pl.imiev.app;
+package io.github.janaskarol.miev;
 
 /**
  * Testy dekodowania bez Androida - Decoder nie zalezy od SDK, wiec wystarczy JDK.
  *
  * Uruchomienie (po skompilowaniu razem ze src):
  *   javac -d /tmp/atest src/main/java/pl/imiev/app/Decoder.java test/DecoderTest.java
- *   java -cp /tmp/atest pl.imiev.app.DecoderTest
+ *   java -cp /tmp/atest io.github.janaskarol.miev.DecoderTest
  */
 public final class DecoderTest {
 

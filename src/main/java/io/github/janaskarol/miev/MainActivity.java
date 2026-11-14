@@ -101,6 +101,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        CrashLog.install(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -196,7 +197,8 @@ public class MainActivity extends Activity {
         aboutText.setText("i-MiEV Monitor · wersja " + versionName()
                 + "\nNieoficjalna aplikacja, niepowiązana z Mitsubishi Motors."
                 + "\nBrak dostępu do internetu — dane nie opuszczają telefonu."
-                + "\nCertyfikat SHA-256:\n" + certificateFingerprint());
+                + "\nCertyfikat SHA-256:\n" + certificateFingerprint()
+                + crashSection());
     }
 
     @Override
@@ -731,6 +733,13 @@ public class MainActivity extends Activity {
             view.setPadding(left, top, right, bottom);
             return insets;
         });
+    }
+
+    /** Ostatni zapisany blad (jesli byl) - do przepisania lub zrzutu ekranu. */
+    private String crashSection() {
+        String last = CrashLog.last(this);
+        if (last == null) return "";
+        return "\n\n— OSTATNI BŁĄD (zrób zrzut i wyślij) —\n" + last;
     }
 
     /** Jednorazowa informacja przy pierwszym uruchomieniu. */
