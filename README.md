@@ -4,7 +4,9 @@ Aplikacja na telefon z Androidem, która pokazuje dane z elektrycznego auta
 na żywo: moc, zapas energii w baterii, napięcia i temperatury ogniw oraz
 historię jazd.
 
-Obsługuje **Mitsubishi i-MiEV, Peugeot iOn i Citroën C-Zero**.
+Sprawdzona na **Mitsubishi i-MiEV**. Peugeot iOn i Citroën C-Zero to ten sam
+samochód w innej karoserii — aplikacja powinna działać, ale jeszcze tego nie testowano.
+Jeśli masz te auta i chcesz pomóc, daj znać w zgłoszeniach.
 
 ![Ekran główny](mockup/screen-start.png)
 
@@ -15,7 +17,7 @@ Obsługuje **Mitsubishi i-MiEV, Peugeot iOn i Citroën C-Zero**.
 - telefon z Androidem 5.0 lub nowszym,
 - adapter **ELM327 z Bluetooth** (taki, który wpina się w gniazdo diagnostyczne
   OBD-II pod deską rozdzielczą),
-- zdjęty ekran/dostęp do Bluetooth w telefonie.
+- włączony Bluetooth w telefonie.
 
 ## Instalacja
 
