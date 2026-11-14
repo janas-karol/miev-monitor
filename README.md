@@ -14,8 +14,7 @@ Jeśli masz te auta i chcesz pomóc, daj znać w zgłoszeniach.
 
 ## Co potrzebujesz
 
-- telefon z Androidem 5.0 lub nowszym (aplikacja jest zbudowana pod najnowsze
-  wymagania Androida, więc Play Protect nie zgłasza jej jako przestarzałej),
+- telefon z Androidem 5.0 lub nowszym,
 - adapter **ELM327 z Bluetooth** (taki, który wpina się w gniazdo diagnostyczne
   OBD-II pod deską rozdzielczą),
 - włączony Bluetooth w telefonie.
@@ -24,13 +23,13 @@ Jeśli masz te auta i chcesz pomóc, daj znać w zgłoszeniach.
 
 1. Wejdź na stronę wydań: **https://github.com/janas-karol/miev-monitor/releases/latest**
 2. Pobierz plik `imiev-….apk`.
-3. Otwórz go na telefonie. Jeśli system zapyta o zgodę na instalację z nieznanego
-   źródła, zaznacz zgodę dla przeglądarki lub menedżera plików i wybierz **Zainstaluj**.
+3. Otwórz go na telefonie i wybierz **Zainstaluj**.
+   Jeśli system zapyta o zgodę na instalację z tego źródła (przeglądarka lub
+   menedżer plików), zaznacz ją i wróć do instalacji.
 4. Po instalacji otwórz aplikację **MiEV Monitor**.
 
-> Aplikacja nie pochodzi ze Sklepu Play, więc Android może pokazać ostrzeżenie.
-> Jest to normalne dla aplikacji spoza sklepu. Aplikacja **nie ma dostępu do internetu**
-> i nie wysyła nigdzie żadnych danych.
+> Aplikacja nie jest w Sklepie Play, dlatego instalujesz ją z pliku. Nie ma w niej
+> dostępu do internetu i nic nie jest wysyłane poza telefon.
 
 ## Pierwsze połączenie z adapterem
 

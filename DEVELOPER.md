@@ -7,7 +7,8 @@ instrukcja jest w [README.md](README.md).
 
 - JDK 17 (np. Temurin) — ścieżka domyślna `~/tools/jdk-17`, nadpisywalna zmienną `JDK`,
 - Android SDK: platforma `android-36`, build-tools `36.0.0`
-  (`minSdk 21`, `targetSdk 36` — starszy targetSdk wywołuje ostrzeżenie Play Protect)
+  (`minSdk 21`, `targetSdk 36`; starszy `targetSdk` powoduje ostrzeżenie Play Protect
+  „aplikacja na starszą wersję Androida”)
   (domyślnie `~/android-sdk`, nadpisywalne `ANDROID_SDK_ROOT`).
 
 Projekt **nie używa Gradle** ani AndroidX — wystarczają `aapt2`, `javac`, `d8`,
