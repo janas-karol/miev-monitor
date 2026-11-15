@@ -73,7 +73,10 @@ telefon jest w uchwycie i chcesz widzieć dane cały czas.
 
 ## Zapis danych i eksport
 
-- Aplikacja zapisuje próbki na telefonie: co kilka sekund w czasie jazdy, co pół minuty na postoju.
+- Jazda zapisuje się **sama**: zaczyna się, gdy auto ruszy, i kończy po 2 minutach
+  stania albo po wyłączeniu auta. Nie musisz nic wciskać przed wyjściem z samochodu.
+- Aplikacja zapisuje próbki na telefonie: co sekundę w czasie jazdy, co pół minuty
+  na postoju. Każda próbka ma też napięcie najsłabszego i najmocniejszego ogniwa.
 - Dane **zostają tylko w telefonie**.
 - W zakładce **INNE** możesz wyeksportować zapis do pliku **CSV** (np. do arkusza kalkulacyjnego).
 - Przycisk **Wyczyść bufor** kasuje zapisane próbki. Tej operacji nie da się cofnąć.

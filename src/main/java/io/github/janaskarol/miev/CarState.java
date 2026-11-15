@@ -35,6 +35,14 @@ final class CarState {
     static volatile int cellMin = 0;
     static volatile int cellMax = 0;
     static volatile int cellCount = 0;
+    /** Powod odrzucenia ostatniej odpowiedzi 2102 ("" = dane prawidlowe). */
+    static volatile String cellsNote = "";
+    /** Wiek ostatnich poprawnych ogniw w sekundach (-1 = brak danych). */
+    static volatile int cellsAgeS = -1;
+    /** Potwierdzenie ostatniego zapisu jazdy ("" = jeszcze nic nie zapisano). */
+    static volatile String lastTripSaved = "";
+    /** Licznik zapisanych jazd - zmiana wymusza odswiezenie historii. */
+    static volatile int tripsSaved = 0;
     static volatile int tempMin = 0;
     static volatile int tempMax = 0;
     static volatile int tempCount = 0;
@@ -94,23 +102,43 @@ final class CarState {
 
     /** Przepisuje wartosci z dekodera - wolane tylko z watku uslugi. */
     static void update(Decoder d) {
+        // po wylaczeniu auta ramki przestaja przychodzic; bez tego ekran pokazywal
+        // zamrozone "8.5 kW" i predkosc z ostatniej chwili, jakby auto jechalo
+        boolean fresh = d.lastFrameAt == 0
+                || System.currentTimeMillis() - d.lastFrameAt <= 15_000;
+
         soc = d.soc;
-        volts = d.volts;
-        amps = d.amps;
-        // wskazanie: dodatnia = pobor z baterii (prawa strona tarczy), ujemna = rekuperacja
-        powerKw = -d.powerKw();
-        speed = d.speed;
-        heaterA = d.heaterA;
-        heaterKw = d.heaterKw();
-        acA = d.acA;
-        acKw = d.acKw();
-        flowC = d.flowC;
-        retC = d.retC;
         rangeKm = d.rangeKm;
         odoKm = d.odoKm;
+        if (fresh) {
+            volts = d.volts;
+            amps = d.amps;
+            // wskazanie: dodatnia = pobor z baterii (prawa strona tarczy), ujemna = rekuperacja
+            powerKw = -d.powerKw();
+            speed = d.speed;
+            heaterA = d.heaterA;
+            heaterKw = d.heaterKw();
+            acA = d.acA;
+            acKw = d.acKw();
+            flowC = d.flowC;
+            retC = d.retC;
+        } else {
+            volts = Float.NaN;
+            amps = Float.NaN;
+            powerKw = Float.NaN;
+            speed = Float.NaN;
+            heaterA = Float.NaN;
+            heaterKw = Float.NaN;
+            acA = Float.NaN;
+            acKw = Float.NaN;
+            flowC = Float.NaN;
+            retC = Float.NaN;
+        }
         cellMin = d.cellMin;
         cellMax = d.cellMax;
         cellCount = d.cellCount;
+        cellsNote = d.cellsRejected;
+        cellsAgeS = d.cellsAt == 0 ? -1 : (int) ((System.currentTimeMillis() - d.cellsAt) / 1000);
         tempMin = d.tempMin;
         tempMax = d.tempMax;
         tempCount = d.tempCount;
@@ -137,6 +165,8 @@ final class CarState {
         cellMin = 0;
         cellMax = 0;
         cellCount = 0;
+        cellsNote = "";
+        cellsAgeS = -1;
         tempMin = 0;
         tempMax = 0;
         tempCount = 0;

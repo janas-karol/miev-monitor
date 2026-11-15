@@ -91,7 +91,7 @@ def gauge_svg(value: float, preset, height: int = 330) -> str:
     for v in range(-25, 51, 5):
         if v in (-25, 50):          # skrajne kreski usuniete - schodza sie na 6:00
             continue
-        if v > 0 and v % 10 != 0:
+        if v % 10 != 0:             # etykiety i kreski tylko co 10 kW po obu stronach
             continue
         ang = a(float(v))
         x1, y1 = point(ang, R - 12)

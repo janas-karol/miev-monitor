@@ -22,7 +22,7 @@ import java.util.Locale;
 final class SampleLog extends SQLiteOpenHelper {
 
     private static final String DB_NAME = "imiev.db";
-    private static final int DB_VERSION = 2;
+    private static final int DB_VERSION = 4;
 
     /** Wiersz historii jazd. */
     static final class TripRow {
@@ -60,7 +60,10 @@ final class SampleLog extends SQLiteOpenHelper {
                 + "ts INTEGER NOT NULL,"        // epoch [s] z zegara telefonu
                 + "soc REAL, v REAL, a REAL, kw REAL, kph REAL,"
                 + "heater_a REAL, ac_a REAL, flow_c REAL, ret_c REAL,"
-                + "moving INTEGER)");
+                + "moving INTEGER,"
+                // ogniwa - potrzebne do testow pod obciazeniem (delta rosnie przy duzym pradzie)
+                + "cell_min INTEGER, cell_max INTEGER, cell_delta INTEGER,"
+                + "cell_count INTEGER, temp_max INTEGER)");
         db.execSQL("CREATE INDEX idx_sample_ts ON sample(ts)");
         createTripTable(db);
     }
@@ -73,18 +76,57 @@ final class SampleLog extends SQLiteOpenHelper {
                 + "start_soc REAL, end_soc REAL,"
                 + "distance_km REAL, discharge_kwh REAL, regen_kwh REAL,"
                 + "heater_kwh REAL, max_speed REAL,"
-                + "odo_start INTEGER, odo_end INTEGER)");
+                + "odo_start INTEGER, odo_end INTEGER,"
+                // 0 = jazda w trakcie (wpis powstal przy starcie odcinka)
+                + "closed INTEGER DEFAULT 1)");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_trip_start ON trip(started_at)");
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) createTripTable(db);
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE trip ADD COLUMN closed INTEGER DEFAULT 1");
+        }
+        if (oldVersion < 3) {
+            // stare probki zostaja; nowe kolumny sa puste (NULL) dla historii
+            db.execSQL("ALTER TABLE sample ADD COLUMN cell_min INTEGER");
+            db.execSQL("ALTER TABLE sample ADD COLUMN cell_max INTEGER");
+            db.execSQL("ALTER TABLE sample ADD COLUMN cell_delta INTEGER");
+            db.execSQL("ALTER TABLE sample ADD COLUMN cell_count INTEGER");
+            db.execSQL("ALTER TABLE sample ADD COLUMN temp_max INTEGER");
+        }
     }
 
-    /** Zapisuje zamkniety odcinek jazdy. */
-    void addTrip(TripTracker.Trip t) {
-        if (t.distanceKm < 0.05f) return;        // pomijamy odcinki typu "przeparkowanie"
+    /**
+     * Odcinek trafia do historii juz przy starcie (closed = 0) i jest aktualizowany
+     * co kilka sekund. Dzieki temu zabicie aplikacji albo zerwane polaczenie nie
+     * kasuje jazdy - wpis zostaje i domyka sie przy nastepnym uruchomieniu.
+     */
+    int startTrip(TripTracker.Trip t) {
+        ContentValues v = tripValues(t, 0);
+        long id = getWritableDatabase().insert("trip", null, v);
+        return (int) id;
+    }
+
+    void updateTrip(int id, TripTracker.Trip t) {
+        if (id < 0) return;
+        getWritableDatabase().update("trip", tripValues(t, 0), "id = ?",
+                new String[]{String.valueOf(id)});
+    }
+
+    void closeTrip(int id, TripTracker.Trip t) {
+        if (id < 0) return;
+        getWritableDatabase().update("trip", tripValues(t, 1), "id = ?",
+                new String[]{String.valueOf(id)});
+    }
+
+    void discardTrip(int id) {
+        if (id < 0) return;
+        getWritableDatabase().delete("trip", "id = ?", new String[]{String.valueOf(id)});
+    }
+
+    private static ContentValues tripValues(TripTracker.Trip t, int closed) {
         ContentValues v = new ContentValues();
         v.put("started_at", t.startMs / 1000);
         v.put("ended_at", t.endMs / 1000);
@@ -97,7 +139,24 @@ final class SampleLog extends SQLiteOpenHelper {
         v.put("max_speed", t.maxSpeed);
         v.put("odo_start", t.odoStart);
         v.put("odo_end", t.odoEnd);
-        getWritableDatabase().insert("trip", null, v);
+        v.put("closed", closed);
+        return v;
+    }
+
+    /**
+     * Domyka odcinki zostawione jako "w trakcie" - np. gdy system zabil aplikacje
+     * albo uzytkownik wyszedl z auta bez rozlaczania. Dane sa takie, jakie zdazyl
+     * zapisac ostatni postep (co 5 s), wiec jazda nie przepada.
+     */
+    int finalizeOpenTrips() {
+        return getWritableDatabase().update("trip", closedValues(),
+                "closed IS NULL OR closed = 0", null);
+    }
+
+    private static ContentValues closedValues() {
+        ContentValues v = new ContentValues();
+        v.put("closed", 1);
+        return v;
     }
 
     /** Ostatnie jazdy, najnowsze pierwsze. */
@@ -106,7 +165,8 @@ final class SampleLog extends SQLiteOpenHelper {
         Cursor c = getReadableDatabase().rawQuery(
                 "SELECT started_at, ended_at, start_soc, end_soc, distance_km,"
                         + " discharge_kwh, regen_kwh, heater_kwh, max_speed"
-                        + " FROM trip ORDER BY started_at DESC LIMIT " + Math.max(1, limit), null);
+                        + " FROM trip WHERE closed = 1 ORDER BY started_at DESC LIMIT "
+                        + Math.max(1, limit), null);
         try {
             while (c.moveToNext()) {
                 TripRow r = new TripRow();
@@ -140,6 +200,13 @@ final class SampleLog extends SQLiteOpenHelper {
         putNullable(v, "flow_c", d.flowC);
         putNullable(v, "ret_c", d.retC);
         v.put("moving", d.isMoving() ? 1 : 0);
+        if (d.cellCount > 0) {
+            v.put("cell_min", d.cellMin);
+            v.put("cell_max", d.cellMax);
+            v.put("cell_delta", d.cellMax - d.cellMin);
+            v.put("cell_count", d.cellCount);
+        }
+        if (d.tempCount > 0) v.put("temp_max", d.tempMax);
         getWritableDatabase().insert("sample", null, v);
     }
 
@@ -170,17 +237,19 @@ final class SampleLog extends SQLiteOpenHelper {
         File out = new File(dir, "imiev-" + stamp + ".csv");
 
         Cursor c = getReadableDatabase().rawQuery(
-                "SELECT ts, soc, v, a, kw, kph, heater_a, ac_a, flow_c, ret_c, moving "
+                "SELECT ts, soc, v, a, kw, kph, heater_a, ac_a, flow_c, ret_c, moving,"
+                        + " cell_min, cell_max, cell_delta, cell_count, temp_max "
                         + "FROM sample ORDER BY ts", null);
         try (BufferedWriter w = new BufferedWriter(new OutputStreamWriter(
                 new FileOutputStream(out), StandardCharsets.UTF_8))) {
-            w.write("ts,iso_time,soc,v,a,kw,kph,heater_a,ac_a,flow_c,ret_c,moving\n");
+            w.write("ts,iso_time,soc,v,a,kw,kph,heater_a,ac_a,flow_c,ret_c,moving,"
+                    + "cell_min,cell_max,cell_delta,cell_count,temp_max\n");
             SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
             while (c.moveToNext()) {
                 StringBuilder line = new StringBuilder(96);
                 long ts = c.getLong(0);
                 line.append(ts).append(',').append(iso.format(new Date(ts * 1000)));
-                for (int col = 1; col <= 10; col++) {
+                for (int col = 1; col <= 15; col++) {
                     line.append(',');
                     if (!c.isNull(col)) line.append(c.getDouble(col));
                 }

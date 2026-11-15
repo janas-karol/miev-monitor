@@ -88,6 +88,7 @@ public class MainActivity extends Activity {
 
 
     private long lastHistoryAt = 0;
+    private int lastTripsSaved = 0;
 
     private final Runnable ticker = new Runnable() {
         @Override
@@ -460,14 +461,26 @@ public class MainActivity extends Activity {
         cellTabDelta.setTextColor(deltaColor(delta));
 
 
-        cellSummary.setText(String.format(Locale.US,
+        // wiek danych pozwala ocenic, czy odczyt pod obciazeniem nadaza za zmiana pradu
+        String fresh = CarState.cellsAgeS < 0 ? "brak danych"
+                : CarState.cellsAgeS <= 1 ? "teraz"
+                : CarState.cellsAgeS + " s temu";
+
+        String summary = String.format(Locale.US,
                 "Ogniw %d · najsłabsze: m%d (%d mV) · najmocniejsze: m%d (%d mV) · Δ %d mV"
-                        + "\npasek: 3800–4200 mV",
+                        + "\nodczyt %s · pasek: 3800–4200 mV",
                 cells.length,
                 CarState.cellMinIndex / 4 + 1, CarState.cellMin,
-                CarState.cellMaxIndex / 4 + 1, CarState.cellMax, delta));
+                CarState.cellMaxIndex / 4 + 1, CarState.cellMax, delta,
+                fresh);
+        // gdy ostatni odczyt byl smieciem, mowimy o tym wprost - inaczej wyglada to jak
+        // "dane sie nie odswiezaja", a to adapter zwrocil urwana odpowiedz
+        if (!CarState.cellsNote.isEmpty()) {
+            summary = summary + "\nodczyt odrzucony: " + CarState.cellsNote + " (dane sprzed chwili)";
+        }
+        cellSummary.setText(summary);
 
-        // siatke przebudowujemy tylko, gdy przyszly nowe dane z ogniw (co ~30 s),
+        // siatke przebudowujemy tylko, gdy przyszly nowe dane z ogniw (co ~3 s),
         // a nie co sekunde - 88 widokow na watku UI to glowna przyczyna lagow
         int hash = java.util.Arrays.hashCode(cells);
         if (hash != lastCellsHash) {
@@ -530,6 +543,12 @@ public class MainActivity extends Activity {
         refreshOthers();
         refreshCellsTab();
 
+        // nowa jazda w historii - odswiezamy od razu, bez czekania na cykl
+        if (CarState.tripsSaved != lastTripsSaved) {
+            lastTripsSaved = CarState.tripsSaved;
+            lastHistoryAt = 0;
+        }
+
         long now = System.currentTimeMillis();
         if (now - lastHistoryAt > HISTORY_REFRESH_MS) {
             lastHistoryAt = now;
@@ -560,7 +579,10 @@ public class MainActivity extends Activity {
             tripTime.setText("–");
             tripAvg.setText("–");
             tripRegen.setText("–");
-            tripFoot.setText("Odcinek startuje automatycznie, gdy auto ruszy");
+            // po zapisie jazdy pokazujemy potwierdzenie - inaczej nie wiadomo, czy historia ma odcinek
+            tripFoot.setText(CarState.lastTripSaved.isEmpty()
+                    ? "Odcinek startuje automatycznie, gdy auto ruszy"
+                    : CarState.lastTripSaved + " · nowy odcinek startuje sam");
         }
     }
 

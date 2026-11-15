@@ -35,11 +35,18 @@ public class ReaderService extends Service {
             "ATCAF1", "ATFCSH761", "ATFCSD300000", "ATFCSM1", "ATSH761",
     };
 
-    private static final long SAMPLE_MOVING_MS = 2000;
+    private static final long SAMPLE_MOVING_MS = 1000;   // probka co 1 s w jezdzie - dosc gesto na testy pod obciazeniem
     private static final long SAMPLE_IDLE_MS = 30000;
     private static final long RECONNECT_MS = 5000;
-    /** Ogniwa i temperatury odczytujemy rzadko - kazdy odczyt blokuje nasluch na kilka sekund. */
-    private static final long CELL_POLL_MS = 30000;
+    /** Po wylaczeniu zaplonu ramki 0x373 znikaja - tyle ciszy uznajemy za koniec jazdy. */
+    private static final long CAR_OFF_SILENCE_MS = 60_000;
+    /** Brak ramek dluzej niz to = dane nieaktualne (nie liczymy z nich ruchu ani energii). */
+    private static final long FRAME_STALE_MS = 10_000;
+    /**
+     * Co ile pytac o ogniwa. Cala odpowiedz 2102 to 26 ramek, wiec odczyt blokuje
+     * nasluch na ok. 0,5 s - przy 3 s zostaje jeszcze 80% czasu na moc i predkosc.
+     */
+    private static final long CELL_POLL_MS = 3000;
 
     private volatile boolean running = false;
     private Thread worker;
@@ -52,6 +59,10 @@ public class ReaderService extends Service {
     private String targetMac;
     private String targetName = "adapter";
     private long lastSampleAt = 0;
+    /** Ile razy z rzedu nie udalo sie odczytac ogniw (urwane odpowiedzi adaptera). */
+    private int cellsFailures = 0;
+    /** Licznik cykli odczytu ogniw - temperatury czytamy rzadziej. */
+    private int cellCycles = 0;
     /** Czy adapter jest w trybie nasluchu (surowe ramki). Po odczycie ogniw - nie. */
     private boolean monitorMode = false;
     private long lastNotifyAt = 0;
@@ -62,7 +73,9 @@ public class ReaderService extends Service {
     public void onCreate() {
         super.onCreate();
         sampleLog = new SampleLog(this);
-        tripTracker = new TripTracker(sampleLog::addTrip);
+        // jazda przerwana przez zabicie aplikacji wraca do historii przy starcie
+        sampleLog.finalizeOpenTrips();
+        tripTracker = new TripTracker(new TripRecorder());
         createChannel();
     }
 
@@ -138,6 +151,35 @@ public class ReaderService extends Service {
         }
     }
 
+    /**
+     * Zapisywanie jazd. Odcinek jest w bazie od pierwszej sekundy (closed = 0) i
+     * aktualizowany co 5 s, wiec nawet zabicie aplikacji go nie kasuje.
+     */
+    private final class TripRecorder implements TripTracker.Listener {
+        @Override
+        public int onTripStarted(TripTracker.Trip t) {
+            return sampleLog.startTrip(t);
+        }
+
+        @Override
+        public void onTripProgress(int id, TripTracker.Trip t) {
+            sampleLog.updateTrip(id, t);
+        }
+
+        @Override
+        public void onTripFinished(int id, TripTracker.Trip t) {
+            sampleLog.closeTrip(id, t);
+            CarState.tripsSaved++;
+            CarState.lastTripSaved = String.format(java.util.Locale.US,
+                    "zapisano jazdę: %.1f km, %.1f kWh", t.distanceKm, t.netKwh());
+        }
+
+        @Override
+        public void onTripDiscarded(int id) {
+            sampleLog.discardTrip(id);
+        }
+    }
+
     private BluetoothDevice resolveDevice() {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter == null) throw new IllegalStateException("brak Bluetootha w telefonie");
@@ -157,6 +199,8 @@ public class ReaderService extends Service {
     }
 
     private void innerLoop() {
+        cellsFailures = 0;
+        cellCycles = 0;
         long lastCells = System.currentTimeMillis() - CELL_POLL_MS + 2000;   // pierwszy odczyt po 2 s
         long lastUi = 0;
         monitorMode = false;
@@ -175,7 +219,15 @@ public class ReaderService extends Service {
 
             maybeLogSample();
 
-            tripTracker.update(decoder, now);
+            // cisza w ramkach = auto wylaczone; odcinek trzeba zamknac, bo warunek
+            // "120 s stania" nigdy sie nie spelni (nie ma juz zadnych ramek)
+            if (tripTracker.isActive() && decoder.lastFrameAt > 0
+                    && now - decoder.lastFrameAt > CAR_OFF_SILENCE_MS) {
+                tripTracker.end(decoder.lastFrameAt);
+            }
+
+            boolean fresh = now - decoder.lastFrameAt <= FRAME_STALE_MS;
+            tripTracker.update(decoder, now, fresh);
 
             if (now - lastUi > 1000) {
                 lastUi = now;
@@ -206,20 +258,42 @@ public class ReaderService extends Service {
         monitorMode = true;
     }
 
+    /**
+     * Odczyt ogniw i temperatur przez ISO-TP.
+     *
+     * Klon ELM czasem zwraca urwana odpowiedz (jedno ogniwo po 53 V, temperatury
+     * po 170 C). Dekoder odrzuca takie smieci, a tutaj probujemy drugi raz, zamiast
+     * kasowac ostatnie dobre dane. Po trzech nieudanych cyklach z rzedu uznajemy,
+     * ze adapter nie odpowiada i wymuszamy ponowne polaczenie.
+     */
     private void pollCellsAndTemps() {
         elm.command("ATCAF1", 900);
         elm.command("ATFCSM1", 900);
         elm.command("ATFCSH761", 900);
         elm.command("ATFCSD300000", 900);
         elm.command("ATSH761", 900);
-        sleep(150);
+        sleep(100);
 
-        String cells = elm.command("2102", 2500);
-        if (cells.isEmpty()) throw new IllegalStateException("brak odpowiedzi na 2102");
-        decoder.decodeCells(cells);
+        boolean cellsOk = false;
+        for (int attempt = 0; attempt < 2 && !cellsOk; attempt++) {
+            if (attempt > 0) sleep(250);
+            String cells = elm.command("2102", 4000);
+            if (cells.isEmpty()) continue;
+            cellsOk = decoder.decodeCells(cells) > 0;
+        }
+        cellsFailures = cellsOk ? 0 : cellsFailures + 1;
 
-        String temps = elm.command("2103", 2500);
-        if (!temps.isEmpty()) decoder.decodeTemps(temps);
+        // temperatury zmieniaja sie wolno - pytamy co piaty cykl (15 s), zeby nie
+        // blokowac nasluchu dluzej, niz trzeba
+        if (++cellCycles % 5 == 0) {
+            String temps = elm.command("2103", 4000);
+            if (!temps.isEmpty()) decoder.decodeTemps(temps);
+        }
+        sleep(50);
+
+        if (cellsFailures >= 10) {         // 10 cykli po 3 s = pol minuty bez ogniw
+            throw new IllegalStateException("adapter nie podaje ogniw (" + decoder.cellsRejected + ")");
+        }
     }
 
     private void maybeLogSample() {
@@ -299,6 +373,8 @@ public class ReaderService extends Service {
     // ------------------------------------------------------------------ zatrzymanie
 
     private void stopReading(String reason) {
+        // najpierw domykamy jazde - inaczej historia gubi odcinek
+        if (tripTracker != null) tripTracker.end(System.currentTimeMillis());
         running = false;
         CarState.serviceRunning = false;
         CarState.connected = false;

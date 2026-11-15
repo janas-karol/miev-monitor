@@ -20,6 +20,43 @@ public final class DecoderTest {
         return Math.abs(a - b) < 0.01;
     }
 
+    /** Payload 2102: nagłówek 61 02 i `n` ogniw po `first` mV (kolejne +1 mV). */
+    private static byte[] cellsPayload(int n, int first) {
+        byte[] p = new byte[2 + n * 2];
+        p[0] = 0x61;
+        p[1] = 0x02;
+        for (int i = 0; i < n; i++) {
+            int mv = first + i;
+            p[2 + i * 2] = (byte) (mv >> 8);
+            p[3 + i * 2] = (byte) mv;
+        }
+        return p;
+    }
+
+    /** Buduje tekst odpowiedzi ISO-TP (ATH1, ATS0): pierwsza ramka + kolejne, po 8 bajtów. */
+    private static String isotp(int id, byte[] payload) {
+        StringBuilder sb = new StringBuilder();
+        int total = payload.length;
+        sb.append(String.format("%03X", id)).append("10").append(String.format("%02X", total));
+        for (int i = 0; i < 6 && i < total; i++) sb.append(String.format("%02X", payload[i]));
+        int idx = Math.min(6, total), seq = 1;
+        while (idx < total) {
+            sb.append("\r").append(String.format("%03X", id)).append("2")
+                    .append(String.format("%X", seq & 0x0F));
+            int n = 0;
+            while (n < 7 && idx < total) {
+                sb.append(String.format("%02X", payload[idx++]));
+                n++;
+            }
+            while (n < 7) {                       // dopełnienie do 8 bajtów jak w CAN
+                sb.append("00");
+                n++;
+            }
+            seq++;
+        }
+        return sb.toString();
+    }
+
     public static void main(String[] args) {
         System.out.println("=== dekoder i-MiEV (Java) ===");
 
@@ -94,23 +131,56 @@ public final class DecoderTest {
                     "0x384 grzalka 15.5 A, plynu 42.2 -> 37.4 C");
         }
 
-        // ISO-TP: dwie ramki, 8 bajtow danych (2102)
+        // 2102: pelna odpowiedz - 88 ogniw 3700..3787 mV, ISO-TP w 26 ramkach
         {
             Decoder d = new Decoder();
-            String raw = "762" + "10" + "08" + "61" + "02" + "0F" + "3A" + "0F" + "3B"
-                    + "\r762" + "21" + "0F" + "3C" + "0F" + "3D" + "0F" + "3E" + "0F";
-            int cells = d.decodeCells(raw);
-            check(cells > 0 && d.cellCount == cells && d.cellMin >= 2000,
-                    "ISO-TP sklada 2102 i dekoduje ogniwa");
+            int cells = d.decodeCells(isotp(0x762, cellsPayload(88, 3700)));
+            check(cells == 88 && d.cellCount == 88, "2102 pelna odpowiedz: 88 ogniw");
+            check(d.cellMin == 3700 && d.cellMax == 3787, "2102 min 3700, max 3787 mV");
+            check(d.cellsRejected.isEmpty(), "2102 poprawna odpowiedz bez noty o odrzuceniu");
+            check(d.cellMaxIndex / 4 + 1 == 22, "2102 indeks najslabszego/najmocniejszego ogniwa");
         }
 
-        // 2103: temperatury (bajt - 50), 0xFE pomijane; 8 bajtow w dwoch ramkach
+        // 2102: urwana odpowiedz (jedno ogniwo 0xCF64 = 53092 mV) - to bylo widac na zrzucie
         {
             Decoder d = new Decoder();
-            String raw = "762" + "10" + "08" + "61" + "03" + "37" + "38" + "39" + "FE"
-                    + "\r762" + "21" + "3A" + "FE";
-            int n = d.decodeTemps(raw);
-            check(n == 4 && d.tempMin == 5 && d.tempMax == 8, "2103 temperatury 5..8 C (czujniki 0xFE pominiete)");
+            String raw = "762" + "04" + "61" + "02" + "CF" + "64" + "00" + "00" + "00" + "00";
+            check(d.decodeCells(raw) == 0 && d.cellCount == 0, "2102 urwana ramka (53092 mV) odrzucona");
+            check(!d.cellsRejected.isEmpty(), "2102 odrzucenie ma podany powod");
+        }
+
+        // 2102: odpowiedz z trzema ogniwami (za malo) - tez smieci
+        {
+            Decoder d = new Decoder();
+            check(d.decodeCells(isotp(0x762, cellsPayload(3, 3700))) == 0,
+                    "2102 odpowiedz z 3 ogniwami odrzucona");
+        }
+
+        // 2103: temperatury (bajt - 50), 0xFE pomijane
+        {
+            Decoder d = new Decoder();
+            byte[] p = new byte[10];
+            p[0] = 0x61;
+            p[1] = 0x03;
+            p[2] = 0x37;   // 5 C
+            p[3] = 0x38;   // 6 C
+            p[4] = 0x39;   // 7 C
+            p[5] = (byte) 0xFE;
+            p[6] = 0x3A;   // 8 C
+            p[7] = 0x3B;   // 9 C
+            int n = d.decodeTemps(isotp(0x762, p));
+            check(n == 5 && d.tempMin == 5 && d.tempMax == 9, "2103 temperatury 5..9 C (czujniki 0xFE pominiete)");
+        }
+
+        // 2103: smieci (0x64 -> 50 C, 0xDC -> 170 C) - to bylo widac na zrzucie
+        {
+            Decoder d = new Decoder();
+            byte[] p = new byte[8];
+            p[0] = 0x61;
+            p[1] = 0x03;
+            p[2] = 0x64;
+            p[3] = (byte) 0xDC;
+            check(d.decodeTemps(isotp(0x762, p)) == 0, "2103 temperatury 50/170 C odrzucone");
         }
 
         System.out.println();

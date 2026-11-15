@@ -50,7 +50,7 @@ podpisuje kluczem debug z ostrzeżeniem.
 | `.../ReaderService.java` | usługa w tle: połączenie, pętla odczytu, powiadomienie, reconnect |
 | `.../CarState.java` | stan współdzielony między usługą a ekranem |
 | `.../ElmConnection.java` | SPP: gniazdo (3 warianty), komendy AT, nasłuch `ATMA` |
-| `.../Decoder.java` | parser ramek, ISO-TP, dekodowanie sygnałów |
+| `.../Decoder.java` | parser ramek, ISO-TP, dekodowanie sygnałów; walidacja odpowiedzi 2102/2103 |
 | `.../PowerGaugeView.java` | zegar mocy (Canvas), układy `THIRD/HALF/LEFT/FULL`, animowana igła (wygładzanie wykładnicze) |
 | `.../SparklineView.java` | pasek ostatnich 2 minut |
 | `.../TripTracker.java` | liczenie odcinka jazdy |
@@ -58,6 +58,23 @@ podpisuje kluczem debug z ostrzeżeniem.
 | `res/layout/activity_main.xml` | cały wygląd |
 | `mockup/render.py` | generator makiet PNG (HTML/SVG, bez telefonu) |
 | `test/DecoderTest.java` | testy dekodowania |
+
+### Walidacja odpowiedzi 2102/2103
+
+Klon ELM327 potrafi odpowiedzieć tylko kawałkiem: jedną ramką ISO-TP z samym
+początkiem danych albo urwanym ciągiem wielo-ramkowym. Taka „odpowiedź" dawała
+jedno ogniwo po 53 V i temperatury po 170 °C na ekranie.
+
+Dekoder przyjmuje odpowiedź tylko gdy:
+
+- zaczyna się od `61 02` (ogniwa) albo `61 03` (temperatury) — pozytywna odpowiedź,
+- składa się z pełnych ramek 8-bajtowych (ścieżka ścisła; awaryjnie dowolnych),
+- zawiera co najmniej 20 ogniw w zakresie 2000–4500 mV i rozrzut poniżej 1500 mV,
+- temperatury: co najmniej 2 czujniki w zakresie −40…80 °C i różnica poniżej 60 K.
+
+Odrzucona odpowiedź **nie kasuje** poprzednich danych — zakładka OGNIWA pokazuje
+wtedy „odczyt odrzucony: …" z powodem. Odczyt ogniw leci co 5 s (temperatury co 15 s),
+a po trzech nieudanych cyklach usługa ponawia połączenie.
 
 ## Dekodowane ramki
 
@@ -112,3 +129,23 @@ co aplikacja, ale są podglądem — nie zrzutem z telefonu.
 - Adapter obsługuje jedno połączenie naraz.
 - Tanie klony ELM327 pamiętają jedno urządzenie partnerskie.
 - Brak uprawnienia INTERNET — świadoma decyzja (prywatność), nie do zmiany bez zgody użytkownika.
+
+### Zapis jazd — dlaczego wpis powstaje od razu
+
+Odcinek trafia do tabeli `trip` z `closed = 0` w chwili startu i jest aktualizowany
+co 5 s (`PROGRESS_SAVE_MS`). Dzięki temu proces zabity przez system nie kasuje jazdy:
+przy następnym uruchomieniu `finalizeOpenTrips()` domyka wpisy `closed = 0`.
+
+Zakończenie odcinka następuje w trzech przypadkach:
+
+1. 120 s bez ruchu przy żywych ramkach (`END_AFTER_STATIONARY_MS`),
+2. 60 s ciszy w ramkach — auto wyłączone (`CAR_OFF_SILENCE_MS` w `ReaderService`),
+3. rozłączenie, zatrzymanie usługi albo `onDestroy` (`TripTracker.end()`).
+
+Uwaga na dwie pułapki, które wcześniej psuły historię:
+
+- `Decoder.isMoving()` **nie** może opierać się na mocy — grzanie PTC i klima pobierają
+  2–4 kW na postoju, więc timer „ostatni ruch" odświeżał się w kółko i odcinek nigdy
+  się nie kończył. Ruch liczymy z prędkości, moc tylko gdy prędkości brak.
+- Po wyłączeniu auta dekoder trzyma ostatnie wartości. `TripTracker.update(..., fresh)`
+  dostaje informację o świeżości ramek i przy ciszy nie nalicza energii ani dystansu.

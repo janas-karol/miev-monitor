@@ -281,7 +281,7 @@ public class PowerGaugeView extends View {
         drawZone(canvas, 18f, 32f, "#3A3020");              // mocniej
         drawZone(canvas, 32f, DRAW_MAX_KW, "#3A2222");      // maks
 
-        // podzialka: kreska co 5 kW, etykieta co 5 po lewej i co 10 po prawej
+        // podzialka: kreska co 5 kW (dluzsza co 10), etykieta tylko przy wielokrotnosci 10
         tickPaint.setStrokeWidth(Math.max(2f, size * 0.006f));
         labelPaint.setTextSize(Math.max(15f, size * 0.050f));
         float outer = radius - stroke * 0.75f;
@@ -295,7 +295,8 @@ public class PowerGaugeView extends View {
             float angle = (float) Math.toRadians(angleOf(v));
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
-            boolean major = v < 0f || Math.abs(Math.round(v) % 10) == 0;
+            // co 10 kW kreska dluzsza i etykieta; -5 i -15 maja tylko krotka kreske
+            boolean major = Math.abs(Math.round(v) % 10) == 0;
             float tickInner = major ? inner : inner - size * 0.014f;
             float tickOuter = major ? outer : outer - size * 0.014f;
             canvas.drawLine(cx + tickInner * cos, cy + tickInner * sin,
