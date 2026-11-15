@@ -89,6 +89,8 @@ def gauge_svg(value: float, preset, height: int = 330) -> str:
         parts.append(arc(a(lo), a(hi), R, color, 8))
 
     for v in range(-25, 51, 5):
+        if v in (-25, 50):          # skrajne kreski usuniete - schodza sie na 6:00
+            continue
         if v > 0 and v % 10 != 0:
             continue
         ang = a(float(v))
@@ -96,7 +98,7 @@ def gauge_svg(value: float, preset, height: int = 330) -> str:
         x2, y2 = point(ang, R - 5)
         parts.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
                      f'stroke="#4A5766" stroke-width="2"/>')
-        if v not in (-25, 50):      # skrajne schodza sie na 6:00 - bez etykiet
+        if True:                    # etykiety wszystkich pozostalych kresek
             lx, ly = point(ang, R - 26)
             parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" fill="#A7B2BE" font-size="11" '
                          f'font-family="DejaVu Sans" text-anchor="middle" '

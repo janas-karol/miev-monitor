@@ -83,7 +83,19 @@ public class PowerGaugeView extends View {
 
     private final RectF arcRect = new RectF();
 
+    /** Ile czasu (w sekundach) igla potrzebuje na pokonanie ~63% roznicy wartosci. */
+    private static final float NEEDLE_TAU_S = 0.09f;
+    /** Gorny limit predkosci igly (kW/s) - zeby skok z rekuperacji na pelna moc nie byl teleportacja. */
+    private static final float NEEDLE_MAX_RATE = 400f;
+    /** Ponizej tej roznicy uznajemy, ze igla dotarla na miejsce. */
+    private static final float NEEDLE_SNAP = 0.02f;
+
+    /** Wartosc docelowa z auta. */
     private float kw = Float.NaN;
+    /** Wartosc rysowana - dogania `kw` plynnie, jak wskazowka obrotomierza. */
+    private float shownKw = Float.NaN;
+    private boolean animating = false;
+    private long lastFrameMs = 0;
     private float peakKw = 0f;
 
     public PowerGaugeView(Context context) {
@@ -139,9 +151,74 @@ public class PowerGaugeView extends View {
     }
 
     public void setPower(float kw) {
+        if (Float.isNaN(kw)) {
+            // brak danych - igla od razu na zero, bez animacji dokreślania
+            this.kw = Float.NaN;
+            this.shownKw = Float.NaN;
+            animating = false;
+            invalidate();
+            return;
+        }
+
         this.kw = kw;
-        if (!Float.isNaN(kw) && kw > peakKw) peakKw = kw;
-        invalidate();
+        if (kw > peakKw) peakKw = kw;
+
+        if (Float.isNaN(shownKw)) {
+            shownKw = kw;          // pierwsza wartosc po polaczeniu - bez skoku z zera
+            animating = false;
+            invalidate();
+            return;
+        }
+
+        if (!animating) {
+            animating = true;
+            lastFrameMs = 0;
+            postInvalidateOnAnimation();
+        }
+    }
+
+    /**
+     * Przesuwa igle o jedna klatke w strone wartosci docelowej.
+     *
+     * Ruch jest wykladniczy (szybki start, miekkie dojscie), a nie skokowy: przy
+     * skoku 2 -> 20 kW igla przechodzi przez wszystkie wartosci posrednie w ok. 0,25 s.
+     * Dzieki temu liczba i luk wartosci pokazuja to samo, co igla.
+     */
+    private void stepNeedle() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (!animating) {
+            lastFrameMs = now;
+            return;
+        }
+
+        float dt = lastFrameMs == 0 ? 0.016f : (now - lastFrameMs) / 1000f;
+        lastFrameMs = now;
+        if (dt <= 0f) dt = 0.016f;
+        if (dt > 0.05f) dt = 0.05f;      // klatka zgubiona (np. ekran w tle) - nie skaczemy
+
+        if (Float.isNaN(shownKw)) {
+            shownKw = kw;
+            animating = false;
+            return;
+        }
+
+        float delta = kw - shownKw;
+        if (Math.abs(delta) <= NEEDLE_SNAP) {
+            shownKw = kw;
+            animating = false;
+            return;
+        }
+
+        float step = delta * (1f - (float) Math.exp(-dt / NEEDLE_TAU_S));
+        float maxStep = NEEDLE_MAX_RATE * dt;
+        if (Math.abs(step) > maxStep) step = Math.signum(delta) * maxStep;
+
+        shownKw += step;
+        // nie przestrzel w druga strone
+        if ((delta > 0f && shownKw > kw) || (delta < 0f && shownKw < kw)) {
+            shownKw = kw;
+            animating = false;
+        }
     }
 
     public void setPeak(float peakKw) {
@@ -179,6 +256,9 @@ public class PowerGaugeView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+        // igla dogania wartosc docelowa - rysujemy stan posredni, nie skok
+        stepNeedle();
+
         int w = getWidth();
         int h = getHeight();
         float size = Math.min(w, h);
@@ -208,6 +288,10 @@ public class PowerGaugeView extends View {
         float inner = outer - size * 0.05f;
 
         for (float v = REGEN_MIN_KW; v <= DRAW_MAX_KW + 0.01f; v += 5f) {
+            // skrajne kreski (-25 i +50) pomijamy - schodza sie na 6:00 i tylko zageszczaja
+            // podzialke przy przerwie; skala konczy sie na -20 i +40
+            if (v <= REGEN_MIN_KW + 0.01f || v >= DRAW_MAX_KW - 0.01f) continue;
+
             float angle = (float) Math.toRadians(angleOf(v));
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
@@ -233,19 +317,19 @@ public class PowerGaugeView extends View {
         }
 
         // luk wartosci
-        if (!Float.isNaN(kw)) {
-            int color = colorFor(kw);
+        if (!Float.isNaN(shownKw)) {
+            int color = colorFor(shownKw);
             valuePaint.setColor(color);
             valuePaint.setShadowLayer(size * 0.025f, 0f, 0f, color);
 
-            float valueAngle = angleOf(kw);
+            float valueAngle = angleOf(shownKw);
             canvas.drawArc(arcRect, Math.min(zeroAngle(), valueAngle),
                     Math.abs(valueAngle - zeroAngle()), false, valuePaint);
             valuePaint.clearShadowLayer();
         }
 
         // igla - krotka, zeby nie wchodzila w tekst w srodku
-        float needleAngle = (float) Math.toRadians(angleOf(Float.isNaN(kw) ? 0f : kw));
+        float needleAngle = (float) Math.toRadians(angleOf(Float.isNaN(shownKw) ? 0f : shownKw));
         needlePaint.setStrokeWidth(Math.max(3f, size * 0.011f));
         canvas.drawLine(cx + radius * 0.45f * (float) Math.cos(needleAngle),
                 cy + radius * 0.45f * (float) Math.sin(needleAngle),
@@ -256,11 +340,11 @@ public class PowerGaugeView extends View {
         float baseline = cy + size * 0.14f;
         String integers;
         String fraction;
-        if (Float.isNaN(kw)) {
+        if (Float.isNaN(shownKw)) {
             integers = "–";
             fraction = "";
         } else {
-            String formatted = String.format(java.util.Locale.US, "%.1f", kw);   // np. 2.5
+            String formatted = String.format(java.util.Locale.US, "%.1f", shownKw);   // np. 2.5
             int dot = formatted.indexOf('.');
             integers = formatted.substring(0, dot);
             fraction = "," + formatted.substring(dot + 1);
@@ -286,6 +370,9 @@ public class PowerGaugeView extends View {
 
         unitPaint.setTextSize(size * 0.058f);
         canvas.drawText("kW", cx, cy + size * 0.205f, unitPaint);
+
+        // igla jeszcze nie dotarla - kolejna klatka animacji (ok. 60 na sekunde)
+        if (animating) postInvalidateOnAnimation();
     }
 
     private void drawZone(Canvas canvas, float from, float to, String color) {

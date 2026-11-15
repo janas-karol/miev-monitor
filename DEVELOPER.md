@@ -51,7 +51,7 @@ podpisuje kluczem debug z ostrzeżeniem.
 | `.../CarState.java` | stan współdzielony między usługą a ekranem |
 | `.../ElmConnection.java` | SPP: gniazdo (3 warianty), komendy AT, nasłuch `ATMA` |
 | `.../Decoder.java` | parser ramek, ISO-TP, dekodowanie sygnałów |
-| `.../PowerGaugeView.java` | zegar mocy (Canvas), układy `THIRD/HALF/LEFT/FULL` |
+| `.../PowerGaugeView.java` | zegar mocy (Canvas), układy `THIRD/HALF/LEFT/FULL`, animowana igła (wygładzanie wykładnicze) |
 | `.../SparklineView.java` | pasek ostatnich 2 minut |
 | `.../TripTracker.java` | liczenie odcinka jazdy |
 | `.../SampleLog.java` | SQLite (próbki, jazdy) + eksport CSV |

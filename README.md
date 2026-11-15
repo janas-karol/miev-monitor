@@ -54,8 +54,10 @@ Dolne zakładki przełączają widoki:
 | **ODCINEK** | bieżąca jazda (dystans, zużycie, czas) oraz historia poprzednich jazd |
 | **INNE** | zasięg, przebieg, temperatura płynu grzewczego, klimatyzacja, eksport danych, ustawienia ekranu |
 
-Zegar mocy: środek to aktualna moc w kW. Zapas energii (SoC), prędkość i pobór
-ogrzewania znajdziesz w zakładce **INNE**.
+Zegar mocy: środek to aktualna moc w kW. Igła porusza się płynnie — przy skoku
+z 2 na 20 kW przechodzi przez wartości pośrednie w około 0,3 s, jak obrotomierz.
+Skala kończy się na −20 kW (odzysk) i 40 kW (pobór), bez kresek na samych końcach.
+Zapas energii (SoC), prędkość i pobór ogrzewania znajdziesz w zakładce **INNE**.
 
 ### Jak działa odczyt w tle
 
