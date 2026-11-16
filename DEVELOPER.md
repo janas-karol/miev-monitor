@@ -49,7 +49,7 @@ podpisuje kluczem debug z ostrzeżeniem.
 | `src/main/java/io/github/janaskarol/miev/MainActivity.java` | ekran: zakładki, adapter, odświeżanie, eksport |
 | `.../ReaderService.java` | usługa w tle: połączenie, pętla odczytu, powiadomienie, reconnect |
 | `.../CarState.java` | stan współdzielony między usługą a ekranem |
-| `.../ElmConnection.java` | SPP: gniazdo (3 warianty), komendy AT, nasłuch `ATMA` |
+| `.../ElmConnection.java` | SPP: gniazdo (3 warianty), komendy AT, ciągły nasłuch `ATMA` |
 | `.../Decoder.java` | parser ramek, ISO-TP, dekodowanie sygnałów; walidacja odpowiedzi 2102/2103 |
 | `.../PowerGaugeView.java` | zegar mocy (Canvas), układy `THIRD/HALF/LEFT/FULL`, animowana igła (wygładzanie wykładnicze) |
 | `.../SparklineView.java` | pasek ostatnich 2 minut |
@@ -73,8 +73,9 @@ Dekoder przyjmuje odpowiedź tylko gdy:
 - temperatury: co najmniej 2 czujniki w zakresie −40…80 °C i różnica poniżej 60 K.
 
 Odrzucona odpowiedź **nie kasuje** poprzednich danych — zakładka OGNIWA pokazuje
-wtedy „odczyt odrzucony: …" z powodem. Odczyt ogniw leci co 5 s (temperatury co 15 s),
-a po trzech nieudanych cyklach usługa ponawia połączenie.
+wtedy „odczyt odrzucony: …" z powodem. Odczyt ogniw leci co 5 s (temperatury co
+5 udanych cykli, czyli ~25 s), a po sześciu nieudanych cyklach usługa restartuje
+adapter w ramach tego samego połączenia (ATZ) — bez zrywania Bluetooth.
 
 ## Dekodowane ramki
 
@@ -129,6 +130,27 @@ co aplikacja, ale są podglądem — nie zrzutem z telefonu.
 - Adapter obsługuje jedno połączenie naraz.
 - Tanie klony ELM327 pamiętają jedno urządzenie partnerskie.
 - Brak uprawnienia INTERNET — świadoma decyzja (prywatność), nie do zmiany bez zgody użytkownika.
+
+### Dlaczego nasłuch mocy jest ciągły
+
+ELM327 ma jeden kanał: albo nasłuchuje magistrali (`ATMA`), albo wykonuje zapytania.
+Wcześniej nasłuch był serią 80 ms z 40 ms przerwy na zatrzymanie i ponowne `ATMA`
+— jedna trzecia czasu szła w błoto, a moc odświeżała się skokowo. Teraz `ATMA`
+działa **ciągle** (`startMonitor()`), dane czytamy `readMonitor()` w każdej iteracji
+pętli, a strumień zatrzymujemy tylko na czas odczytu ogniw (`stopMonitor()`).
+
+Budżet czasowy jednego cyklu (5 s):
+
+| etap | czas |
+|---|---|
+| ciągły nasłuch mocy i prędkości | ~4,1 s |
+| przełączenie trybu (5 komend jednym zapisem) | ~0,2 s |
+| zapytanie `2102` + odpowiedź | ~0,5 s |
+| `2103` co 5. cykl | ~0,4 s |
+
+Ekran odświeża się co 0,5 s (`UI_REFRESH_MS`), a pasek „ostatnie 2 minuty" dostaje
+punkt raz na sekundę. Wcześniej ekran odświeżał się co 1 s, co przy animowanej
+igle wyglądało jak szarpanie.
 
 ### Zapis jazd — dlaczego wpis powstaje od razu
 

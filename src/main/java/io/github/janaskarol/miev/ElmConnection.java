@@ -113,37 +113,104 @@ final class ElmConnection {
     }
 
     /**
-     * Nasluch magistrali: ATMA na podana liczbe milisekund, potem przerwanie.
-     * Zwraca surowy tekst z ramkami (ATH1, ATS0).
+     * Wysyla kilka komend AT jednym zapisem i czeka na tyle znakow zachety,
+     * ile komend wyslano. Klon ELM przetwarza je po kolei, wiec nie ma sensu
+     * czekac osobno po kazdej - przełączanie trybu skraca sie z ~5 rund do jednej.
+     *
+     * @return liczba odebranych znakow zachety (rownanie komend = wszystko przyjete)
      */
-    String monitor(int ms) {
-        if (in == null || out == null) return "";
+    int commandsBatch(String[] cmds, long timeoutMs) {
+        if (in == null || out == null) return 0;
+        try {
+            drain();
+            StringBuilder all = new StringBuilder();
+            for (String c : cmds) all.append(c).append('\r');
+            out.write(all.toString().getBytes(StandardCharsets.US_ASCII));
+            out.flush();
+
+            int prompts = 0;
+            long deadline = System.currentTimeMillis() + timeoutMs;
+            byte[] buf = new byte[512];
+            while (prompts < cmds.length && System.currentTimeMillis() < deadline) {
+                int n = in.available();
+                if (n > 0) {
+                    int read = in.read(buf, 0, Math.min(n, buf.length));
+                    for (int i = 0; i < read; i++) if (buf[i] == '>') prompts++;
+                } else {
+                    Thread.sleep(5);
+                }
+            }
+            drain();
+            return prompts;
+        } catch (IOException | InterruptedException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Rozpoczyna ciagly nasluch magistrali (ATMA). Strumien czytamy przez
+     * readMonitor(), a zatrzymujemy stopMonitor() przed odczytem ogniw.
+     *
+     * Wczesniej nasluch byl seria 80 ms z 40 ms przerwy na zatrzymanie - jedna
+     * trzecia czasu szla w bloto, a moc odswiezala sie skokowo.
+     */
+    boolean startMonitor() {
+        if (in == null || out == null) return false;
         try {
             drain();
             out.write("ATMA\r".getBytes(StandardCharsets.US_ASCII));
             out.flush();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
 
-            StringBuilder sb = new StringBuilder();
-            long deadline = System.currentTimeMillis() + ms;
-            byte[] buf = new byte[1024];
+    /** Czyta to, co przyszlo. Czeka najwyzej maxWaitMs na pierwsze bajty. */
+    String readMonitor(int maxWaitMs) {
+        if (in == null || out == null) return "";
+        StringBuilder sb = new StringBuilder();
+        long deadline = System.currentTimeMillis() + maxWaitMs;
+        try {
             while (System.currentTimeMillis() < deadline) {
                 int n = in.available();
                 if (n > 0) {
-                    int read = in.read(buf, 0, Math.min(n, buf.length));
-                    if (read > 0) sb.append(new String(buf, 0, read, StandardCharsets.US_ASCII));
+                    byte[] buf = new byte[Math.min(n, 2048)];
+                    int read = in.read(buf, 0, buf.length);
+                    if (read > 0) {
+                        sb.append(new String(buf, 0, read, StandardCharsets.US_ASCII));
+                        break;                      // jest co przetwarzac - nie czekamy dluzej
+                    }
                 } else {
                     Thread.sleep(4);
                 }
             }
+        } catch (IOException | InterruptedException ignored) {
+        }
+        return sb.toString();
+    }
 
-            // przerwij nasluch i oproznij bufor
+    /** Przerywa nasluch i dochodzi do znaku zachety, zeby adapter byl gotowy na komendy. */
+    void stopMonitor() {
+        if (in == null || out == null) return;
+        try {
             out.write('\r');
             out.flush();
-            Thread.sleep(40);
+            long deadline = System.currentTimeMillis() + 500;
+            byte[] buf = new byte[512];
+            while (System.currentTimeMillis() < deadline) {
+                int n = in.available();
+                if (n > 0) {
+                    int read = in.read(buf, 0, Math.min(n, buf.length));
+                    boolean prompt = false;
+                    for (int i = 0; i < read; i++) if (buf[i] == '>') prompt = true;
+                    if (prompt) break;
+                } else {
+                    Thread.sleep(5);
+                }
+            }
             drain();
-            return sb.toString();
-        } catch (IOException | InterruptedException e) {
-            return "";
+        } catch (IOException | InterruptedException ignored) {
         }
     }
 

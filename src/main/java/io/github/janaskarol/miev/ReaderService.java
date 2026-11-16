@@ -37,16 +37,25 @@ public class ReaderService extends Service {
 
     private static final long SAMPLE_MOVING_MS = 1000;   // probka co 1 s w jezdzie - dosc gesto na testy pod obciazeniem
     private static final long SAMPLE_IDLE_MS = 30000;
+    /** Co ile przepisywac dane do ekranu. Igla i tak animuje sie miedzy odczytami. */
+    private static final long UI_REFRESH_MS = 500;
     private static final long RECONNECT_MS = 5000;
     /** Po wylaczeniu zaplonu ramki 0x373 znikaja - tyle ciszy uznajemy za koniec jazdy. */
     private static final long CAR_OFF_SILENCE_MS = 60_000;
     /** Brak ramek dluzej niz to = dane nieaktualne (nie liczymy z nich ruchu ani energii). */
     private static final long FRAME_STALE_MS = 10_000;
     /**
-     * Co ile pytac o ogniwa. Cala odpowiedz 2102 to 26 ramek, wiec odczyt blokuje
-     * nasluch na ok. 0,5 s - przy 3 s zostaje jeszcze 80% czasu na moc i predkosc.
+     * Co ile pytac o ogniwa. Jeden odczyt to 26 ramek ISO-TP plus przelaczenie
+     * trybu, wiec blokuje nasluch na ok. 0,7-1 s. Przy 5 s zostaje ~80% czasu
+     * na moc - przy 3 s moc zaczynala rwac.
      */
-    private static final long CELL_POLL_MS = 3000;
+    private static final long CELL_POLL_MS = 5000;
+    /** Limit na odpowiedz 2102. Pelna odpowiedz przychodzi w ~0,5 s, wiec 1,2 s to zapas. */
+    private static final long CELL_TIMEOUT_MS = 1200;
+    /** Limit na odpowiedz 2103 (temperatury - krotsza odpowiedz). */
+    private static final long TEMP_TIMEOUT_MS = 1000;
+    /** Po tylu nieudanych cyklach restartujemy adapter (ATZ), zeby nie rwac polaczenia. */
+    private static final int CELL_REINIT_AFTER = 6;
 
     private volatile boolean running = false;
     private Thread worker;
@@ -66,6 +75,8 @@ public class ReaderService extends Service {
     /** Czy adapter jest w trybie nasluchu (surowe ramki). Po odczycie ogniw - nie. */
     private boolean monitorMode = false;
     private long lastNotifyAt = 0;
+    /** Pasek "ostatnie 2 minuty" ma 120 punktow - dokladamy je raz na sekunde. */
+    private long lastPowerPushAt = 0;
 
     // ------------------------------------------------------------------ cykl zycia
 
@@ -191,11 +202,11 @@ public class ReaderService extends Service {
         elm.command("ATZ", 2500);
         // po restarcie klon ELM potrzebuje chwili, zanim przyjmie komendy
         sleep(700);
-        for (String cmd : INIT_SEQ) {
-            if (elm.command(cmd, 1000).isEmpty()) return false;
-        }
-        sleep(200);
-        return true;
+        // cala sekwencja jednym zapisem - 10 rund po ~50 ms to za duzo przy restarcie
+        int ok = elm.commandsBatch(INIT_SEQ, 3000);
+        monitorMode = false;
+        sleep(100);
+        return ok >= INIT_SEQ.length - 1;    // jeden zgubiony prompt nie przekresla startu
     }
 
     private void innerLoop() {
@@ -209,15 +220,26 @@ public class ReaderService extends Service {
             long now = System.currentTimeMillis();
 
             if (now - lastCells > CELL_POLL_MS) {
+                elm.stopMonitor();          // zwolnij magistrale na czas 2102/2103
                 pollCellsAndTemps();
                 lastCells = now;
-                monitorMode = false;
+                monitorMode = false;        // po odczycie trzeba znowu ustawic nasluch
             } else {
-                ensureMonitorMode();
-                decoder.decodeBurst(elm.monitor(80));
+                ensureMonitorStream();
+                String burst = elm.readMonitor(150);
+                if (!burst.isEmpty()) {
+                    decoder.decodeBurst(burst);
+                    // "BUFFER FULL" = adapter przestal nadawac; wznawiamy strumien
+                    if (burst.contains("BUFF")) monitorMode = false;
+                }
             }
 
             maybeLogSample();
+
+            if (now - lastPowerPushAt >= 1000) {      // pasek mocy: 120 punktow = 2 minuty
+                lastPowerPushAt = now;
+                CarState.pushPower(CarState.powerKw);
+            }
 
             // cisza w ramkach = auto wylaczone; odcinek trzeba zamknac, bo warunek
             // "120 s stania" nigdy sie nie spelni (nie ma juz zadnych ramek)
@@ -229,10 +251,9 @@ public class ReaderService extends Service {
             boolean fresh = now - decoder.lastFrameAt <= FRAME_STALE_MS;
             tripTracker.update(decoder, now, fresh);
 
-            if (now - lastUi > 1000) {
+            if (now - lastUi > UI_REFRESH_MS) {
                 lastUi = now;
                 CarState.update(decoder);
-                CarState.pushPower(CarState.powerKw);
                 CarState.updateTrip(tripTracker.snapshot(now), tripTracker.isActive());
                 CarState.setPeak(tripTracker.peakKw());
                 if (now - lastNotifyAt > 5000) {
@@ -247,14 +268,13 @@ public class ReaderService extends Service {
      * Przelaczenie adaptera w tryb monitora. Bez CAF0 klon ELM gubi ramki 0x373/0x374
      * (tak samo jak w wersji Python) - dlatego wracamy do tego trybu po kazdym odczycie ogniw.
      */
-    private void ensureMonitorMode() {
+    private void ensureMonitorStream() {
         if (monitorMode) return;
-        boolean ok = !elm.command("ATCAF0", 800).isEmpty();
-        elm.command("ATFCSM0", 800);
-        elm.command("ATSH7DF", 800);
-        if (!ok) {
+        int ok = elm.commandsBatch(new String[]{"ATCAF0", "ATFCSM0", "ATSH7DF"}, 900);
+        if (ok < 3) {
             throw new IllegalStateException("adapter nie przyjął trybu nasłuchu");
         }
+        if (!elm.startMonitor()) throw new IllegalStateException("adapter nie startuje nasłuchu");
         monitorMode = true;
     }
 
