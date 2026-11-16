@@ -45,11 +45,20 @@ public class ReaderService extends Service {
     /** Brak ramek dluzej niz to = dane nieaktualne (nie liczymy z nich ruchu ani energii). */
     private static final long FRAME_STALE_MS = 10_000;
     /**
-     * Co ile pytac o ogniwa. Jeden odczyt to 26 ramek ISO-TP plus przelaczenie
-     * trybu, wiec blokuje nasluch na ok. 0,7-1 s. Przy 5 s zostaje ~80% czasu
-     * na moc - przy 3 s moc zaczynala rwac.
+     * Co ile pytac o ogniwa.
+     *
+     * Delta jest liczona z pelnej odpowiedzi 2102 (88 ogniw, 26 ramek) - krotszego
+     * zapytania z min/max nie ma, sprawdzone takze w 2101. Kazdy odczyt blokuje
+     * nasluch na ~0,7 s, wiec w spokojnej jezdzie pytamy rzadko, a pod obciazeniem
+     * - wtedy delta jest najwazniejsza - czesciej.
      */
-    private static final long CELL_POLL_MS = 5000;
+    private static final long CELL_CALM_MS = 10_000;
+    private static final long CELL_LOAD_MS = 3_000;
+    private static final long CELL_WARN_MS = 5_000;
+    /** Od tego poboru (kW) ogniwa czytamy czesciej: test pod obciazeniem. */
+    private static final float CELL_LOAD_KW = 15f;
+    /** Od tego rozrzutu (mV) ogniwa czytamy czesciej - bateria warta obserwacji. */
+    private static final int CELL_WARN_MV = 40;
     /** Limit na odpowiedz 2102. Pelna odpowiedz przychodzi w ~0,5 s, wiec 1,2 s to zapas. */
     private static final long CELL_TIMEOUT_MS = 1200;
     /** Limit na odpowiedz 2103 (temperatury - krotsza odpowiedz). */
@@ -212,14 +221,14 @@ public class ReaderService extends Service {
     private void innerLoop() {
         cellsFailures = 0;
         cellCycles = 0;
-        long lastCells = System.currentTimeMillis() - CELL_POLL_MS + 2000;   // pierwszy odczyt po 2 s
+        long lastCells = System.currentTimeMillis() - CELL_CALM_MS + 2000;   // pierwszy odczyt po 2 s
         long lastUi = 0;
         monitorMode = false;
 
         while (running && elm.isOpen()) {
             long now = System.currentTimeMillis();
 
-            if (now - lastCells > CELL_POLL_MS) {
+            if (now - lastCells > cellIntervalMs()) {
                 elm.stopMonitor();          // zwolnij magistrale na czas 2102/2103
                 pollCellsAndTemps();
                 lastCells = now;
@@ -281,39 +290,60 @@ public class ReaderService extends Service {
     /**
      * Odczyt ogniw i temperatur przez ISO-TP.
      *
-     * Klon ELM czasem zwraca urwana odpowiedz (jedno ogniwo po 53 V, temperatury
-     * po 170 C). Dekoder odrzuca takie smieci, a tutaj probujemy drugi raz, zamiast
-     * kasowac ostatnie dobre dane. Po trzech nieudanych cyklach z rzedu uznajemy,
-     * ze adapter nie odpowiada i wymuszamy ponowne polaczenie.
+     * Kazdy odczyt zabiera nasluchowi mocy ok. 0,7 s, wiec limit odpowiedzi jest
+     * krotki (1,2 s), a proba tylko jedna - ponawiamy w nastepnym cyklu, zamiast
+     * blokowac petle. Urwane odpowiedzi (jedno ogniwo po 53 V) odrzuca dekoder.
+     * Po kilku nieudanych cyklach restartujemy adapter w tym samym polaczeniu.
      */
     private void pollCellsAndTemps() {
-        elm.command("ATCAF1", 900);
-        elm.command("ATFCSM1", 900);
-        elm.command("ATFCSH761", 900);
-        elm.command("ATFCSD300000", 900);
-        elm.command("ATSH761", 900);
-        sleep(100);
-
-        boolean cellsOk = false;
-        for (int attempt = 0; attempt < 2 && !cellsOk; attempt++) {
-            if (attempt > 0) sleep(250);
-            String cells = elm.command("2102", 4000);
-            if (cells.isEmpty()) continue;
-            cellsOk = decoder.decodeCells(cells) > 0;
+        // przelaczenie trybu jednym zapisem: 5 komend zamiast 5 rund
+        int ok = elm.commandsBatch(new String[]{
+                "ATCAF1", "ATFCSM1", "ATFCSH761", "ATFCSD300000", "ATSH761"}, 1200);
+        if (ok < 5) {
+            cellsFailures++;
+            reinitIfNeeded();
+            return;
         }
+
+        String cells = elm.command("2102", CELL_TIMEOUT_MS);
+        boolean cellsOk = !cells.isEmpty() && decoder.decodeCells(cells) > 0;
         cellsFailures = cellsOk ? 0 : cellsFailures + 1;
 
-        // temperatury zmieniaja sie wolno - pytamy co piaty cykl (15 s), zeby nie
-        // blokowac nasluchu dluzej, niz trzeba
-        if (++cellCycles % 5 == 0) {
-            String temps = elm.command("2103", 4000);
+        // temperatury zmieniaja sie wolno - co piaty udany cykl. Po nieudanym odczycie
+        // ogniw nie dokladamy kolejnego oczekiwania: wracamy do nasluchu mocy.
+        if (cellsOk && ++cellCycles % 5 == 0) {
+            String temps = elm.command("2103", TEMP_TIMEOUT_MS);
             if (!temps.isEmpty()) decoder.decodeTemps(temps);
         }
-        sleep(50);
 
-        if (cellsFailures >= 10) {         // 10 cykli po 3 s = pol minuty bez ogniw
-            throw new IllegalStateException("adapter nie podaje ogniw (" + decoder.cellsRejected + ")");
+        reinitIfNeeded();
+    }
+
+    /**
+     * Ile czekac do nastepnego odczytu ogniw: pod obciazeniem 3 s, przy rozjezdzajacych
+     * sie ogniwach 5 s, w spokojnej jezdzie 10 s.
+     */
+    private long cellIntervalMs() {
+        float kw = decoder.powerKw();          // znak jak w ramce: ujemny = pobor
+        if (!Float.isNaN(kw) && (kw <= -CELL_LOAD_KW || kw >= 10f)) return CELL_LOAD_MS;
+        if (decoder.cellCount > 0 && decoder.cellMax - decoder.cellMin >= CELL_WARN_MV) {
+            return CELL_WARN_MS;
         }
+        return CELL_CALM_MS;
+    }
+
+    /**
+     * Kilka nieudanych odczytow ogniw pod rzad = adapter sie zacial. Restartujemy go
+     * w ramach tego samego polaczenia (ATZ) zamiast zrywac Bluetooth - inaczej przy
+     * kazdym takim epizodzie moc znikala na kilka sekund.
+     */
+    private void reinitIfNeeded() {
+        if (cellsFailures < CELL_REINIT_AFTER) return;
+        cellsFailures = 0;
+        if (!initializeAdapter()) {
+            throw new IllegalStateException("adapter nie odpowiada (" + decoder.cellsRejected + ")");
+        }
+        monitorMode = false;    // po ATZ nasluch trzeba uruchomic od nowa
     }
 
     private void maybeLogSample() {

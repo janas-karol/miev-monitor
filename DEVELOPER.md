@@ -73,9 +73,14 @@ Dekoder przyjmuje odpowiedź tylko gdy:
 - temperatury: co najmniej 2 czujniki w zakresie −40…80 °C i różnica poniżej 60 K.
 
 Odrzucona odpowiedź **nie kasuje** poprzednich danych — zakładka OGNIWA pokazuje
-wtedy „odczyt odrzucony: …" z powodem. Odczyt ogniw leci co 5 s (temperatury co
-5 udanych cykli, czyli ~25 s), a po sześciu nieudanych cyklach usługa restartuje
-adapter w ramach tego samego połączenia (ATZ) — bez zrywania Bluetooth.
+wtedy „odczyt odrzucony: …" z powodem.
+
+Odczyt ogniw jest **adaptacyjny**, bo delta liczy się z pełnej odpowiedzi `2102`:
+w spokojnej jeździe co 10 s, przy rozrzucie ≥ 40 mV co 5 s, a pod obciążeniem
+(≥ 15 kW) co 3 s. Temperatury co 5 udanych cykli (~25–50 s). Limit odpowiedzi
+`2102` to 1,2 s, jedna próba — nieudany odczyt nie blokuje kolejnych. Po sześciu
+nieudanych cyklach usługa restartuje adapter w ramach tego samego połączenia (ATZ),
+bez zrywania Bluetooth.
 
 ## Dekodowane ramki
 
